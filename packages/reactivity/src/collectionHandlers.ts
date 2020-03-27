@@ -227,6 +227,12 @@ iteratorMethods.forEach(method => {
   )
 })
 
+/**
+ * 拦截get方法, 在get的时候存到全局的 targetMap.
+ * (如果是 Map Set WeakMap WeakSet 对象)
+ * 则使用自己创建的普通对象代替，保存到全局的 targetMap 是普通对象，返回的也是普通对象
+ * 不过该普通对象是在这里定义各种方法的，相当于将 Map Set WeakMap WeakSet 的方法附加上去，自己再加上一层trigger的意思
+ */
 function createInstrumentationGetter(
   instrumentations: Record<string, Function>
 ) {

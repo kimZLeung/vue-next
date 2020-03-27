@@ -13,10 +13,10 @@ import { UnwrapRef, Ref, isRef } from './ref'
 import { makeMap } from '@vue/shared'
 
 // WeakMaps that store {raw <-> observed} pairs.
-const rawToReactive = new WeakMap<any, any>()
-const reactiveToRaw = new WeakMap<any, any>()
-const rawToReadonly = new WeakMap<any, any>()
-const readonlyToRaw = new WeakMap<any, any>()
+const rawToReactive = new WeakMap<any, any>() // 以原对象为键，Proxy对象为值
+const reactiveToRaw = new WeakMap<any, any>() // 以Proxy对象为键，原对象为值（判断isReactive）
+const rawToReadonly = new WeakMap<any, any>() // 以原对象为键，Proxy对象为值
+const readonlyToRaw = new WeakMap<any, any>() // 以Proxy对象为键，原对象为值
 
 // WeakSets for values that are marked readonly or non-reactive during
 // observable creation.
@@ -109,6 +109,21 @@ export function shallowReactive<T extends object>(target: T): T {
   )
 }
 
+/**
+ * 通过这个方法传入raw原始数据，挂上Proxy钩子返回响应式数据
+ *
+ * 挂载上hook后，通过effect提供的track方法收集依赖到targetMap中
+ * 依赖数据结构: (ReactiveEffect)这个接口是函数类型
+ *    targetMap: {
+ *      target: {
+ *        dep: Set[]<ReactiveEffect>
+ *      }
+ *    }
+ *
+ * 然后因为Proxy钩子的存在，调用返回的响应式数据的时候通过set方法，可调用
+ * effect中提供的trigger方法进行调用对应 ReactiveEffect 方法，也就是调用者传入的回调。
+ *
+ */
 function createReactiveObject(
   target: unknown,
   toProxy: WeakMap<any, any>,
@@ -135,6 +150,10 @@ function createReactiveObject(
   if (!canObserve(target)) {
     return target
   }
+  // 判断target的构造器是否属于 Set Map WeakSet WeakMap 中的一个
+  // 如果是这种集合。则使用collectionHandlers 处理Proxy：因为这类集合不能直接使用Proxy和Reflect进行代理
+  // 然后保存到全局的targetMap上时就是新创建的普通对象，并不是原本的集合，调用返回的 observed 对象的方法也是Vue给实现的，可以触发trigger
+  // 如果不是直接使用 baseHandlers 就可以
   const handlers = collectionTypes.has(target.constructor)
     ? collectionHandlers
     : baseHandlers
