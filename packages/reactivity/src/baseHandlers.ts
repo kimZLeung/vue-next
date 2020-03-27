@@ -99,10 +99,14 @@ function createSetter(isReadonly = false, shallow = false) {
     const hadKey = hasOwn(target, key)
     const result = Reflect.set(target, key, value, receiver)
     // don't trigger if target is something up in the prototype chain of original
+    // 访问原型链上的方法不触发trigger
     if (target === toRaw(receiver)) {
+      // 判断target上有无对应key
       if (!hadKey) {
+        // 无则是ADD动作
         trigger(target, TriggerOpTypes.ADD, key, value)
       } else if (hasChanged(value, oldValue)) {
+        // 有是SET动作
         trigger(target, TriggerOpTypes.SET, key, value, oldValue)
       }
     }
